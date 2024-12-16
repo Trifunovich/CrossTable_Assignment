@@ -9,61 +9,49 @@ public class Solution {
     static readonly string cultureName = "en-US";
     static readonly CultureInfo cultureInfo = new CultureInfo(cultureName);
     
-    public static void GenerateCrossTable(TextReader reader, TextWriter writer) {
-        //Read lines with comma-separated values into a list of orders
-
-        var lines = new List<string>();
-
-        while (reader.Peek() >= 0)
+public static void GenerateCrossTable(TextReader reader, TextWriter writer)
+    {
+        // Read lines with comma-separated values into a list of orders
+        var orders = new List<Order>();
+        string? line;
+        while ((line = reader.ReadLine()) != null)
         {
-            var readCount = reader.ReadLine();
-            if (readCount?.Length <= 0) continue;
-            lines.Add(readCount);
-        }
-     
-        
-        List<Order> orders = new();
-        for(int i = 0; i < lines.Count(); i++) {
-            string[] pieces = lines[i].Split(",");
-            string name = pieces[0];
-            DateTime date = DateTime.Parse(pieces[1], cultureInfo);
-            float price = float.Parse(pieces[2], cultureInfo);
+            if (line.Length == 0) continue;
+            var pieces = line.Split(',');
+            var name = pieces[0];
+            var date = DateTime.Parse(pieces[1], cultureInfo);
+            var price = float.Parse(pieces[2], cultureInfo);
             orders.Add(new Order(name, date, price));
         }
 
-        //Calculate cross-table summary values
-        Dictionary<ValueTuple<string, int>, float> sums = new();
-        foreach(Order order in orders) {
-            var sumKey = ValueTuple.Create(order.Product, order.Date.Year);
-            if(sums.ContainsKey(sumKey))
+        // Calculate cross-table summary values
+        var sums = new Dictionary<(string Product, int Year), float>();
+        foreach (var order in orders)
+        {
+            var sumKey = (order.Product, order.Date.Year);
+            if (sums.ContainsKey(sumKey))
                 sums[sumKey] += order.Price;
             else
                 sums[sumKey] = order.Price;
         }
 
-        //Calculate ordered lists of years and product names
-        var years = 
-            sums.
-                Keys.Select(x => x.Item2).Distinct().Order().ToArray();
+        // Calculate ordered lists of years and product names
+        var years = sums.Keys.Select(x => x.Year).Distinct().OrderBy(x => x).ToArray();
+        var products = sums.Keys.Select(x => x.Product).Distinct().OrderBy(x => x).ToArray();
 
-        var products = sums.
-            Keys.Select(x => x.Item1).Order().Distinct().ToArray();
-
-        //Produce resulting table
-        string header = GenerateTableLine(null, years.Select(x => x.ToString()));
-        string delimeter = GenerateTableLine("-", Enumerable.Repeat("-", years.Length));
-        List<string> rows = new();
-        foreach(var product in products)
+        // Produce resulting table
+        var header = GenerateTableLine(null, years.Select(x => x.ToString()));
+        var delimiter = GenerateTableLine("-", Enumerable.Repeat("-", years.Length));
+        var rows = new List<string>();
+        foreach (var product in products)
         {
             var newCells = years
-                .Select(year =>
-                    sums.GetValueOrDefault(ValueTuple.Create(product, year), 0))
+                .Select(year => sums.GetValueOrDefault((product, year), 0))
                 .Select(x => x == 0 ? string.Empty : x.ToString("c", cultureInfo));
-            
-            string row = GenerateTableLine(product, newCells.ToArray());
+            var row = GenerateTableLine(product, newCells.ToArray());
             rows.Add(row);
         }
-        writer.Write(header + delimeter + string.Concat(rows));
+        writer.Write(header + delimiter + string.Concat(rows));
     }
     static string GenerateTableLine(string? left, IEnumerable<string> values) { 
         return $"|{left}|{string.Join("|", values)}|{Environment.NewLine}";
