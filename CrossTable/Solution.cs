@@ -1,27 +1,37 @@
 ﻿using System.Buffers;
-using System.Collections.Generic;
 using System.Globalization;
+using System.Text;
 
 //Transforms csv input into md table. See tests project for sample input and output.
+namespace CrossTable;
+
 public class Solution {
-    record Order(string Product, DateTime Date, float Price);
+    record struct Order(string Product, DateTime Date, float Price);
 
     static readonly string cultureName = "en-US";
     static readonly CultureInfo cultureInfo = new CultureInfo(cultureName);
-    
-public static void GenerateCrossTable(TextReader reader, TextWriter writer)
+    private static StringBuilder rowBuilder = new();
+
+    public static void GenerateCrossTable(TextReader reader, TextWriter writer)
     {
         // Read lines with comma-separated values into a list of orders
         var orders = new List<Order>();
-        string? line;
-        while ((line = reader.ReadLine()) != null)
+        var buffer = ArrayPool<char>.Shared.Rent(1024);
+        try
         {
-            if (line.Length == 0) continue;
-            var pieces = line.Split(',');
-            var name = pieces[0];
-            var date = DateTime.Parse(pieces[1], cultureInfo);
-            var price = float.Parse(pieces[2], cultureInfo);
-            orders.Add(new Order(name, date, price));
+            while (reader.ReadLine() is { } line)
+            {
+                if (line.Length == 0) continue;
+                var pieces = line.Split(',');
+                var name = pieces[0];
+                var date = DateTime.Parse(pieces[1], cultureInfo);
+                var price = float.Parse(pieces[2], cultureInfo);
+                orders.Add(new Order(name, date, price));
+            }
+        }
+        finally
+        {
+            ArrayPool<char>.Shared.Return(buffer);
         }
 
         // Calculate cross-table summary values
@@ -36,25 +46,40 @@ public static void GenerateCrossTable(TextReader reader, TextWriter writer)
         }
 
         // Calculate ordered lists of years and product names
-        var years = sums.Keys.Select(x => x.Year).Distinct().OrderBy(x => x).ToArray();
-        var products = sums.Keys.Select(x => x.Product).Distinct().OrderBy(x => x).ToArray();
+        var years = sums.Keys.Select(x => x.Year)
+            .Distinct()
+            .Order()
+            .ToArray();
+
+        rowBuilder.Clear();
+        GenerateTableLine(null, years.Select(x => x.ToString()));
+        GenerateTableLine("-", Enumerable.Repeat("-", years.Length));
 
         // Produce resulting table
-        var header = GenerateTableLine(null, years.Select(x => x.ToString()));
-        var delimiter = GenerateTableLine("-", Enumerable.Repeat("-", years.Length));
-        var rows = new List<string>();
-        foreach (var product in products)
+
+        foreach (var p in sums
+                     .Keys
+                     .Select(x => x.Product)
+                     .Distinct()
+                     .Order())
         {
             var newCells = years
-                .Select(year => sums.GetValueOrDefault((product, year), 0))
+                .Select(year => sums.GetValueOrDefault((p, year), 0))
                 .Select(x => x == 0 ? string.Empty : x.ToString("c", cultureInfo));
-            var row = GenerateTableLine(product, newCells.ToArray());
-            rows.Add(row);
+            GenerateTableLine(p, newCells);
         }
-        writer.Write(header + delimiter + string.Concat(rows));
+
+        writer.Write(rowBuilder.ToString());
     }
-    static string GenerateTableLine(string? left, IEnumerable<string> values) { 
-        return $"|{left}|{string.Join("|", values)}|{Environment.NewLine}";
+
+    private static void GenerateTableLine(string? left, IEnumerable<string> values)
+    {
+        rowBuilder.Append("|");
+        rowBuilder.Append(left);
+        rowBuilder.Append("|");
+        rowBuilder.AppendJoin("|", values);
+        rowBuilder.Append("|");
+        rowBuilder.Append(Environment.NewLine);
     }
 
 

@@ -43,7 +43,7 @@ public class CrossTableBenchmark {
     public void Solution_Original() => GenerateCrossTable(global::Solution_Original.GenerateCrossTable);
 
     [Benchmark]
-    public void Solution() => GenerateCrossTable(global::Solution.GenerateCrossTable);
+    public void Solution() => GenerateCrossTable(global::CrossTable.Solution.GenerateCrossTable);
 
 
     protected void GenerateCrossTable(Action<TextReader, TextWriter> generate) {
