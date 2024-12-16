@@ -6,7 +6,7 @@ using System.Text;
 namespace CrossTable;
 
 public class Solution {
-    record struct Order(string Product, DateTime Date, float Price);
+    private record struct Order(string Product, DateTime Date, float Price);
 
     static readonly string cultureName = "en-US";
     static readonly CultureInfo cultureInfo = new CultureInfo(cultureName);
@@ -16,9 +16,7 @@ public class Solution {
     {
         // Read lines with comma-separated values into a list of orders
         var orders = new List<Order>();
-        var buffer = ArrayPool<char>.Shared.Rent(1024);
-        try
-        {
+       
             while (reader.ReadLine() is { } line)
             {
                 if (line.Length == 0) continue;
@@ -28,11 +26,6 @@ public class Solution {
                 var price = float.Parse(pieces[2], cultureInfo);
                 orders.Add(new Order(name, date, price));
             }
-        }
-        finally
-        {
-            ArrayPool<char>.Shared.Return(buffer);
-        }
 
         // Calculate cross-table summary values
         var sums = new Dictionary<(string Product, int Year), float>();
